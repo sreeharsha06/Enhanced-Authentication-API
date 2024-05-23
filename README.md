@@ -21,7 +21,7 @@ This project is a Node.js-based authentication system that supports user registr
     git clone <repolink>
  
 #### Install dependencies:
-    npm install
+    npm i
 Create a .env file in the root directory and add the following  environment variables:
 
     PORT=3000
