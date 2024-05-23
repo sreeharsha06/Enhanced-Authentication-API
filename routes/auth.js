@@ -186,7 +186,7 @@ router.get('/google/callback', async (req, res) => {
     let user = await User.findOne({ googleId });
     if (!user) {
       // If user doesn't exist, create a new one
-      user = new User({ googleId, email, name, profilePhoto });
+      user = new User({ password: googleId, email, name, provider: 'Google'});
       await user.save();
     }
 
