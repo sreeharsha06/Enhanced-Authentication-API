@@ -4,6 +4,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
+const home = require('./routes/home')
 
 require('dotenv').config();
 
@@ -25,6 +26,7 @@ const specs = swaggerJsdoc(options);
 
 app.use(express.json());
 
+app.use('/', home)
 app.use('/auth', authRoutes);
 app.use('/profile', profileRoutes);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));

@@ -1,9 +1,14 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/Users');
 const { body, validationResult } = require('express-validator');
 const router = express.Router();
+
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, 'http://localhost:3000/auth/google/callback');
+
 
 // Register
 /**
@@ -134,24 +139,69 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Google OAuth
-router.get('/auth/google', (req, res) => {
-  // Handle Google OAuth logic here
-});
-
-router.get('/auth/google/callback', async (req, res) => {
+/** 
+* @swagger
+* /auth/google/callback:
+*   get:
+*     summary: Google OAuth callback
+*     description: Handles the Google OAuth callback and generates a JWT token for the authenticated user.
+*     tags:
+*       - Authentication
+*     parameters:
+*       - in: query
+*         name: code
+*         schema:
+*           type: string
+*         required: true
+*         description: Authorization code from Google
+*     responses:
+*       302:
+*         description: Redirects to /auth/success with JWT token
+*         headers:
+*           Location:
+*             description: URL to redirect to with the JWT token
+*             schema:
+*               type: string
+*       500:
+*         description: Server error
+*/
+router.get('/google/callback', async (req, res) => {
   try {
-    // Handle Google OAuth callback here
-    const payload = { user: { id: user.id } };
-    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' }, (err, token) => {
+    const { code } = req.query;
+    const { tokens } = await client.getToken(code);
+    client.setCredentials(tokens);
+
+    // Retrieve the user's profile information
+    const ticket = await client.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const googleId = payload['sub'];
+    const email = payload['email'];
+    const name = payload['name'];
+
+    // Check if user already exists
+    let user = await User.findOne({ googleId });
+    if (!user) {
+      // If user doesn't exist, create a new one
+      user = new User({ googleId, email, name, profilePhoto });
+      await user.save();
+    }
+
+    // Generate JWT
+    const jwtPayload = { user: { id: user.id } };
+    jwt.sign(jwtPayload, process.env.JWT_SECRET, { expiresIn: '1h' }, (err, token) => {
       if (err) throw err;
+      // redirect to frontend app
       res.redirect(`/auth/success?token=${token}`);
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: 'Server error' });
   }
 });
-
 
 // Sign out
 router.get('/logout', (req, res) => {
